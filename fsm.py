@@ -33,7 +33,7 @@ class TocMachine(GraphMachine):
         text = event.message.text
 
         reply_token = event.reply_token
-        send_text_message(reply_token, "請輸入要查詢的地點(XX區)")
+        send_text_message(reply_token, "請輸入要查詢的地點(XX+區)")
 
         # self.go_back()
     '''
@@ -49,16 +49,24 @@ class TocMachine(GraphMachine):
         reply_token = event.reply_token
         send_text_message(reply_token, "Trigger service")'''
 
-        title = '請先提供您的基本資訊'
-        text = '您是『男生』還是『女生』'
+        title = '請選擇需要的服務'
+        text = 'service'
         btn = [
             MessageTemplateAction(
-                label='男生',
-                text='男生'
+                label='溫度',
+                text='溫度'
             ),
             MessageTemplateAction(
-                label='女生',
-                text='女生'
+                label='降雨',
+                text='降雨'
+            ),
+            MessageTemplateAction(
+                label='相對溼度',
+                text='相對溼度'
+            ),
+            MessageTemplateAction(
+                label='詳細狀況',
+                text='詳細狀況'
             ),
         ]
         url = 'https://www.cwb.gov.tw/V8/assets/img/weather_icons/weathers/svg_icon/day/04.svg'
