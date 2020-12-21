@@ -13,7 +13,7 @@ from utils import send_text_message
 load_dotenv()
 
 machine = TocMachine(
-    states=["user", "place", "service"],
+    states=["user", "place", "service", "result"],
     transitions=[
         {
             "trigger": "advance",
@@ -27,8 +27,13 @@ machine = TocMachine(
             "dest": "service",
             "conditions": "is_going_to_service",
         },
-
-
+        {
+            "trigger": "advance",
+            "source": "service",
+            "dest": "result",
+            "conditions": "is_going_to_result",
+        },
+        {"trigger": "go_back", "source": ["result"], "dest": "service"},
         {"trigger": "go_back", "source": ["service"], "dest": "place"},
         {"trigger": "go_back", "source": ["place"], "dest": "user"},
     ],
