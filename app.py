@@ -1,48 +1,125 @@
 import os
-from flask import Flask, request, abort
-from linebot import (
-    LineBotApi, WebhookHandler
-)
-from linebot.exceptions import (
-    InvalidSignatureError
-)
-from linebot.models import *
-app = Flask(__name__)
-# Channel Access Token
-line_bot_api = LineBotApi(
-    'pHBOmN2+j++jFH0VrPsjl6cRb22qFRxVCjIkRzgKLWQtc+8eNGkdKY2eu80gRe9eOHbxSye/aGm5yD1JCvKFfXlhXGc3k5SICmEVWQlBppJP6m/BJAgPldPbveU4WRk6mGYaxohIEQSBnDBLnOq+wgdB04t89/1O/w1cDnyilFU=')
-# Channel Secret
-handler = WebhookHandler('86232b0516f94b4fde8a18712280d1f5')
-# 監聽所有來自 /callback 的 Post Request
+import sys
+
+from flask import Flask, jsonify, request, abort, send_file
+from dotenv import load_dotenv
+from linebot import LineBotApi, WebhookParser
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+
+from fsm import TocMachine
+from utils import send_text_message
+
+load_dotenv()
+
+machine = TocMachine(
+    states=["user", "place", "service"],
+    transitions=[
+        {
+            "trigger": "advance",
+            "source": "user",
+            "dest": "place",
+            "conditions": "is_going_to_input_place",
+        },
+        {
+            "trigger": "advance",
+            "source": "place",
+            "dest": "service",
+            "conditions": "is_going_to_service",
+        },
 
 
-@app.route("/callback", methods=['POST'])
+        {"trigger": "go_back", "source": ["service"], "dest": "place"},
+        {"trigger": "go_back", "source": ["place"], "dest": "user"},
+    ],
+    initial="user",
+    auto_transitions=False,
+    show_conditions=True,
+)
+app = Flask(__name__, static_url_path="")
+
+
+# get channel_secret and channel_access_token from your environment variable
+channel_secret = os.getenv("LINE_CHANNEL_SECRET", None)
+channel_access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", None)
+if channel_secret is None:
+    print("Specify LINE_CHANNEL_SECRET as environment variable.")
+    sys.exit(1)
+if channel_access_token is None:
+    print("Specify LINE_CHANNEL_ACCESS_TOKEN as environment variable.")
+    sys.exit(1)
+
+line_bot_api = LineBotApi(channel_access_token)
+parser = WebhookParser(channel_secret)
+
+
+@app.route("/callback", methods=["POST"])
 def callback():
-    # get X-Line-Signature header value
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers["X-Line-Signature"]
     # get request body as text
     body = request.get_data(as_text=True)
     app.logger.info("Request body: " + body)
-    # handle webhook body
+
+    # parse webhook body
     try:
-        handler.handle(body, signature)
+        events = parser.parse(body, signature)
     except InvalidSignatureError:
         abort(400)
-    return 'OK'
-# 處理訊息
+
+    # if event is MessageEvent and message is TextMessage, then echo text
+    for event in events:
+        if not isinstance(event, MessageEvent):
+            continue
+        if not isinstance(event.message, TextMessage):
+            continue
+
+        line_bot_api.reply_message(
+            event.reply_token, TextSendMessage(text=event.message.text)
+        )
+
+    return "OK"
 
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    message = TextSendMessage(text=event.message.text)
-    line_bot_api.reply_message(event.reply_token, message)
+@app.route("/webhook", methods=["POST"])
+def webhook_handler():
+    signature = request.headers["X-Line-Signature"]
+    # get request body as text
+    body = request.get_data(as_text=True)
+    app.logger.info(f"Request body: {body}")
+
+    # parse webhook body
+    try:
+        events = parser.parse(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+
+    # if event is MessageEvent and message is TextMessage, then echo text
+    for event in events:
+
+        if not isinstance(event, MessageEvent):
+            continue
+        if not isinstance(event.message, TextMessage):
+            continue
+        if not isinstance(event.message.text, str):
+            continue
+        #print(f"\nFSM STATE: {machine.states}")
+        #print(f"REQUEST BODY: \n{body}")
+        response = machine.advance(event)
+        if response == False:
+            send_text_message(event.reply_token, "Not Entering any State")
+            print(event.message.text.lower())
+
+    return "OK"
 
 
-@app.route('/')
-def index():
-    return 'Hello World'
+@app.route("/show-fsm", methods=["GET"])
+def show_fsm():
+    machine.get_graph().draw("fsm.png", prog="dot", format="png")
+    return send_file("fsm.png", mimetype="image/png")
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port)
+    #machine.get_graph().draw("fsm.png", prog="dot", format="png")
+    #send_file("fsm.png", mimetype="image/png")
+    port = os.environ.get("PORT", 8000)
+    app.run(host="0.0.0.0", port=port, debug=True)
