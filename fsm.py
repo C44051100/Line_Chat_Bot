@@ -23,14 +23,21 @@ class TocMachine(GraphMachine):
 
     def is_going_to_service(self, event):
         text = event.message.text
-        # print(text)
-        # return text.lower() == "Xinying"
+        global place
+        place = text
+        print(text+"place")
         return True
 
     def is_going_to_result(self, event):
         text = event.message.text
-        # print(text)
-        # return text.lower() == "Xinying"
+        return True
+
+    def is_going_to_place_again(self, event):
+        text = event.message.text
+        return True
+
+    def is_going_to_service_again(self, event):
+        text = event.message.text
         return True
 
     def on_enter_place(self, event):
@@ -41,20 +48,11 @@ class TocMachine(GraphMachine):
         reply_token = event.reply_token
         send_text_message(reply_token, "請輸入要查詢的地點(XX+區)")
 
-        # self.go_back()
-    '''
-    def on_exit_place(self):
-        print("Leaving place")
-    '''
-
     def on_enter_service(self, event):
         print("I'm entering service")
-        text = event.message.text
+        '''text = event.message.text
         global place
-        place = text
-        '''
-        reply_token = event.reply_token
-        send_text_message(reply_token, "Trigger service")'''
+        place = text'''
 
         title = '請選擇需要的服務'
         text = 'service'
@@ -79,12 +77,6 @@ class TocMachine(GraphMachine):
         url = 'https://www.cwb.gov.tw/V8/assets/img/weather_icons/weathers/svg_icon/day/04.svg'
         send_button_message(event.reply_token, title, text, btn, url)
 
-        # self.go_back()
-    '''
-    def on_exit_Xinying(self):
-        print("Leaving Xinying")
-    '''
-
     def on_enter_result(self, event):
         print("I'm entering result")
 
@@ -95,7 +87,7 @@ class TocMachine(GraphMachine):
 
         count = 2595
         k1 = 0
-        k2 = 0
+
         while True:
 
             if(df['DISTRICT'][count] == place):
@@ -107,18 +99,29 @@ class TocMachine(GraphMachine):
 
         print("count"+str(count))
 
-        reply_token = event.reply_token
+        #reply_token = event.reply_token
+        title = 'next step'
         if(service == '溫度'):
-            send_text_message(reply_token, str(df['T'][count])+"°C")
+            text = str(df['T'][count])+"°C"
         if(service == '降雨機率'):
-            send_text_message(reply_token, str(df['PoP6h'][count])+"%")
+            text = str(df['PoP6h'][count])+"%"
         if(service == '相對溼度'):
-            send_text_message(reply_token, str(df['RH'][count])+"%")
+            text = str(df['RH'][count])+"%"
         if(service == '詳細狀況'):
-            send_text_message(reply_token, "溫度:"+str(df['T'][count])+"°C\n"+"相對溼度:"+str(
-                df['PoP6h'][count])+"%\n"+"降雨機率:"+str(df['PoP6h'][count])+"%(6小時內), "+str(df['PoP12h'][count])+"%(12小時內)\n"+"風向:"+str(df['WD'][count])+"\n"+"現況:"+str(df['Wx'][count]))
-        self.go_back()
-    '''
-    def on_exit_state2(self):
-        print("Leaving state2")
-    '''
+            text = "溫度:"+str(df['T'][count])+"°C  "+"相對溼度:"+str(
+                df['RH'][count])+"%"+"\n風向:"+str(df['WD'][count])+"  "+"現況:"+str(df['Wx'][count])+"\n"+"降雨機率:"+str(df['PoP6h'][count])+"%(6hr內), "+str(df['PoP12h'][count])+"%(12hr內)\n"
+
+        #text = 'service'
+        btn = [
+            MessageTemplateAction(
+                label='place',
+                text='place'
+            ),
+            MessageTemplateAction(
+                label='service',
+                text='service'
+            ),
+        ]
+        url = 'https://www.cwb.gov.tw/V8/assets/img/weather_icons/weathers/svg_icon/day/04.svg'
+        send_button_message(event.reply_token, title, text, btn, url)
+        # self.advance(event)
